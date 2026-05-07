@@ -269,18 +269,19 @@
     inset: 0;
     background: rgba(0,0,0,0.7);
     z-index: 100;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
+    padding: 1.25rem;
   }
   .panel-backdrop.open { display: flex; }
   .panel {
     background: var(--surface);
     border: 0.5px solid var(--border2);
-    border-radius: var(--radius) var(--radius) 0 0;
+    border-radius: var(--radius);
     padding: 1.5rem 1.25rem;
     width: 100%;
-    max-width: 520px;
-    max-height: 90dvh;
+    max-width: 480px;
+    max-height: 88dvh;
     overflow-y: auto;
   }
   .panel-title { font-size: 15px; font-weight: 700; margin-bottom: 1.25rem; }
@@ -331,8 +332,9 @@
   }
   .player-list-item:last-child { border-bottom: none; }
   .wish-edit-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
-  .wish-edit-row input[type=text] { flex: 1; }
-  .wish-edit-row input[type=text].desc { flex: 1.2; }
+  .wish-edit-row input[type=text].name { flex: 2; min-width: 0; }
+  .wish-edit-row input[type=number] { width: 60px; flex: none; }
+  .wish-edit-row input[type=text].desc { flex: 2; min-width: 0; }
   .del-btn {
     background: none;
     border: 0.5px solid rgba(242,107,91,0.3);
@@ -528,18 +530,18 @@
 <div class="section-wrap">
   <div class="section-label">加分</div>
   <div class="btn-grid">
-    <button class="score-btn plus" onclick="change(1)">+1</button>
-    <button class="score-btn plus" onclick="change(5)">+5</button>
-    <button class="score-btn plus" onclick="change(10)">+10</button>
+    <button class="score-btn plus" onclick="window._change(1)">+1</button>
+    <button class="score-btn plus" onclick="window._change(5)">+5</button>
+    <button class="score-btn plus" onclick="window._change(10)">+10</button>
   </div>
 </div>
 
 <div class="section-wrap">
   <div class="section-label">扣分</div>
   <div class="btn-grid">
-    <button class="score-btn minus" onclick="change(-1)">-1</button>
-    <button class="score-btn minus" onclick="change(-5)">-5</button>
-    <button class="score-btn minus" onclick="change(-10)">-10</button>
+    <button class="score-btn minus" onclick="window._change(-1)">-1</button>
+    <button class="score-btn minus" onclick="window._change(-5)">-5</button>
+    <button class="score-btn minus" onclick="window._change(-10)">-10</button>
   </div>
 </div>
 
@@ -549,7 +551,7 @@
 </div>
 
 <div class="section-wrap">
-  <button class="log-toggle" onclick="toggleLog(this)">▸ 歷史紀錄</button>
+  <button class="log-toggle" onclick="window._toggleLog(this)">▸ 歷史紀錄</button>
   <div class="log-area" id="log-area"></div>
 </div>
 
@@ -561,15 +563,15 @@
     <div class="panel-section-label">玩家管理</div>
     <div class="add-row">
       <input type="text" id="new-name" placeholder="新增玩家名稱..." maxlength="12">
-      <button class="panel-btn" onclick="addPlayer()">新增</button>
+      <button class="panel-btn" onclick="window._addPlayer()">新增</button>
     </div>
     <div id="player-list"></div>
 
     <div class="panel-section-label">願望清單</div>
     <div id="wish-editor"></div>
-    <button class="add-wish-btn" onclick="addWish()">＋ 新增願望</button>
+    <button class="add-wish-btn" onclick="window._addWish()">＋ 新增願望</button>
 
-    <button class="panel-btn close-btn" onclick="closePanel()">完成</button>
+    <button class="panel-btn close-btn" onclick="window._closePanel()">完成</button>
   </div>
 </div>
 
@@ -587,8 +589,8 @@
     </div>
     <textarea id="note-input" placeholder="例如：幫忙倒垃圾、說謊扣分..." maxlength="80"></textarea>
     <div class="modal-actions">
-      <button class="modal-cancel" onclick="closeNoteModal()">取消</button>
-      <button class="modal-confirm" id="modal-confirm-btn" onclick="confirmChange()">確認</button>
+      <button class="modal-cancel" onclick="window._closeNoteModal()">取消</button>
+      <button class="modal-confirm" id="modal-confirm-btn" onclick="window._confirmChange()">確認</button>
     </div>
   </div>
 </div>
@@ -610,8 +612,8 @@
     </div>
     <div class="modal-body-text">確定要兌換嗎？分數將直接扣除。</div>
     <div class="modal-actions">
-      <button class="modal-cancel" onclick="closeRedeemModal()">再看看</button>
-      <button class="modal-confirm" style="background:var(--amber);color:#0f0f13" onclick="confirmRedeem()">我要兌換</button>
+      <button class="modal-cancel" onclick="window._closeRedeemModal()">再看看</button>
+      <button class="modal-confirm" style="background:var(--amber);color:#0f0f13" onclick="window._confirmRedeem()">我要兌換</button>
     </div>
   </div>
 </div>
@@ -632,8 +634,8 @@
     </div>
     <div class="modal-body-text">取消後將還原分數，並從歷史紀錄中移除此筆。</div>
     <div class="modal-actions">
-      <button class="modal-cancel" onclick="closeCancelRedeemModal()">否</button>
-      <button class="modal-confirm" style="background:var(--red);color:#0f0f13" onclick="confirmCancelRedeem()">是，取消兌換</button>
+      <button class="modal-cancel" onclick="window._closeCancelRedeemModal()">否</button>
+      <button class="modal-confirm" style="background:var(--red);color:#0f0f13" onclick="window._confirmCancelRedeem()">是，取消兌換</button>
     </div>
   </div>
 </div>
@@ -727,8 +729,8 @@ function renderPlayerList() {
 function renderWishEditor() {
   document.getElementById('wish-editor').innerHTML = wishes.map((w, i) =>
     `<div class="wish-edit-row">
-      <input type="text" value="${w.name}" placeholder="願望名稱" oninput="window._updateWish(${i},'name',this.value)">
-      <input type="number" value="${w.cost}" min="0" max="100" oninput="window._updateWish(${i},'cost',+this.value||0)">
+      <input type="text" class="name" value="${w.name}" placeholder="願望名稱" oninput="window._updateWish(${i},'name',this.value)">
+      <input type="number" value="${w.cost}" min="0" max="100" placeholder="分" oninput="window._updateWish(${i},'cost',+this.value||0)">
       <input type="text" class="desc" value="${w.desc}" placeholder="說明" oninput="window._updateWish(${i},'desc',this.value)">
       <button class="del-btn" onclick="window._removeWish(${i})">×</button>
     </div>`
@@ -764,6 +766,8 @@ function showToast(msg) {
   window._toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
 }
 
+let isPanelOpen = false;
+
 onValue(ref(db, 'players'), snap => {
   const val = snap.val();
   players = val ? Object.values(val) : [{ name: '玩家 A', score: 0 }, { name: '玩家 B', score: 0 }];
@@ -771,7 +775,7 @@ onValue(ref(db, 'players'), snap => {
   if (cur >= players.length) cur = 0;
   renderTabs();
   renderScore();
-  if (document.getElementById('player-list').children.length) renderPlayerList();
+  if (isPanelOpen) renderPlayerList();
 });
 
 onValue(ref(db, 'wishes'), snap => {
@@ -784,7 +788,7 @@ onValue(ref(db, 'wishes'), snap => {
   ];
   if (!val) set(ref(db, 'wishes'), wishes);
   renderWishes();
-  if (document.getElementById('wish-editor').children.length) renderWishEditor();
+  if (isPanelOpen) renderWishEditor();
 });
 
 onValue(ref(db, 'logs'), snap => {
@@ -934,15 +938,17 @@ window._removeWish = function(i) {
 };
 
 window._openPanel = function() {
+  isPanelOpen = true;
   renderPlayerList();
   renderWishEditor();
   document.getElementById('backdrop').classList.add('open');
 };
 window._closePanel = function() {
+  isPanelOpen = false;
   document.getElementById('backdrop').classList.remove('open');
 };
 document.getElementById('backdrop').addEventListener('click', function(e) {
-  if (e.target === this) window._closePanel();
+  if (e.target === this) { isPanelOpen = false; window._closePanel(); }
 });
 
 window._toggleLog = function(btn) {
