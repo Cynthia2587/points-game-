@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>積分遊戲</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a22;
+    --surface2: #22222e;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0eff5;
+    --muted: #7a7990;
+    --green: #2dd4a0;
+    --green-dim: rgba(45,212,160,0.12);
+    --red: #f26b5b;
+    --red-dim: rgba(242,107,91,0.12);
+    --amber: #f5a623;
+    --blue: #60a5fa;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    padding-bottom: 2rem;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 1.5rem 1.25rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .app-title {
+    font-size: 13px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .settings-btn {
+    background: none;
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    padding: 6px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+    font-family: inherit;
+  }
+  .settings-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.3); }
+
+  /* ── Player tabs ── */
+  .tabs-wrap {
+    padding: 1.25rem 1.25rem 0;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs-wrap::-webkit-scrollbar { display: none; }
+  .tab {
+    padding: 7px 18px;
+    border-radius: 999px;
+    border: 0.5px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all .15s;
+    flex-shrink: 0;
+  }
+  .tab.active {
+    background: var(--text);
+    color: var(--bg);
+    border-color: transparent;
+    font-weight: 500;
+  }
+
+  /* ── Score card ── */
+  .score-card {
+    margin: 1rem 1.25rem 0;
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .score-card::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: var(--glow-color, rgba(45,212,160,0.06));
+    transition: background .4s;
+    pointer-events: none;
+  }
+  .score-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.25rem;
+  }
+  .player-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .player-name-big { font-size: 20px; font-weight: 700; }
+  .score-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 48px;
+    font-weight: 500;
+    line-height: 1;
+    transition: color .3s;
+  }
+
+  /* ── Progress bar ── */
+  .bar-outer {
+    height: 8px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 999px;
+    position: relative;
+    overflow: visible;
+  }
+  .bar-inner {
+    height: 100%;
+    border-radius: 999px;
+    transition: width .45s cubic-bezier(.4,0,.2,1), background .3s;
+    position: relative;
+  }
+  .bar-thumb {
+    position: absolute;
+    right: -5px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: inherit;
+    border: 2px solid var(--bg);
+  }
+  .bar-mid {
+    position: absolute;
+    left: 50%;
+    top: -4px;
+    width: 1px;
+    height: 16px;
+    background: var(--border2);
+    transform: translateX(-50%);
+  }
+  .bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 8px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── Buttons ── */
+  .section-wrap { padding: 1rem 1.25rem 0; }
+  .section-label {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .btn-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .score-btn {
+    padding: 14px 8px;
+    border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border2);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 500;
+    font-family: 'DM Mono', monospace;
+    cursor: pointer;
+    transition: transform .1s, background .12s, border-color .12s;
+  }
+  .score-btn:active { transform: scale(0.95); }
+  .score-btn.plus { border-color: rgba(45,212,160,0.3); color: var(--green); background: var(--green-dim); }
+  .score-btn.plus:hover { background: rgba(45,212,160,0.2); }
+  .score-btn.minus { border-color: rgba(242,107,91,0.3); color: var(--red); background: var(--red-dim); }
+  .score-btn.minus:hover { background: rgba(242,107,91,0.2); }
+
+  /* ── Wishes ── */
+  .wish-list { display: flex; flex-direction: column; gap: 8px; }
+  .wish-item {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    transition: border-color .2s;
+  }
+  .wish-item.unlocked { border-color: rgba(45,212,160,0.3); }
+  .wish-name { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+  .wish-desc { font-size: 12px; color: var(--muted); }
+  .wish-cost { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; text-align: right; }
+  .wish-tag {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    margin-top: 4px;
+    display: inline-block;
+    letter-spacing: 0.05em;
+  }
+  .tag-ok { background: rgba(45,212,160,0.15); color: var(--green); }
+  .tag-no { background: rgba(255,255,255,0.05); color: var(--muted); }
+
+  /* ── Log ── */
+  .log-toggle {
+    width: 100%;
+    background: none;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 10px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+  }
+  .log-toggle:hover { color: var(--text); border-color: var(--border2); }
+  .log-area {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    display: none;
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .log-entry {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 5px 0;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .log-entry:last-child { border-bottom: none; }
+
+  /* ── Settings panel ── */
+  .panel-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .panel-backdrop.open { display: flex; }
+  .panel {
+    background: var(--surface);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: 1.5rem 1.25rem;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90dvh;
+    overflow-y: auto;
+  }
+  .panel-title { font-size: 15px; font-weight: 700; margin-bottom: 1.25rem; }
+  .panel-section-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    margin-top: 1.25rem;
+  }
+  .panel-section-label:first-of-type { margin-top: 0; }
+  .add-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .panel input[type=text], .panel input[type=number] {
+    flex: 1;
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 9px 12px;
+  }
+  .panel input[type=number] { flex: none; width: 70px; }
+  .panel input::placeholder { color: var(--muted); }
+  .panel-btn {
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 9px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .12s;
+  }
+  .panel-btn:hover { background: rgba(255,255,255,0.08); }
+  .panel-btn.danger { color: var(--red); border-color: rgba(242,107,91,0.3); }
+  .panel-btn.close-btn { width: 100%; margin-top: 1.25rem; }
+  .player-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 0.5px solid var(--border);
+    font-size: 14px;
+  }
+  .player-list-item:last-child { border-bottom: none; }
+  .wish-edit-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .wish-edit-row input[type=text] { flex: 1; }
+  .wish-edit-row input[type=text].desc { flex: 1.2; }
+  .del-btn {
+    background: none;
+    border: 0.5px solid rgba(242,107,91,0.3);
+    border-radius: var(--radius-sm);
+    color: var(--red);
+    font-size: 16px;
+    padding: 7px 10px;
+    cursor: pointer;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .add-wish-btn {
+    width: 100%;
+    background: none;
+    border: 0.5px dashed var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 10px;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: color .15s;
+  }
+  .add-wish-btn:hover { color: var(--text); }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-size: 13px;
+    color: var(--text);
+    opacity: 0;
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 200;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Note modal ── */
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 340px;
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .modal-delta {
+    font-family: 'DM Mono', monospace;
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1;
+  }
+  .modal-sub { font-size: 13px; color: var(--muted); }
+  .modal textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    padding: 10px 12px;
+    resize: none;
+    height: 80px;
+    margin-bottom: 1rem;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .modal textarea:focus { border-color: rgba(255,255,255,0.3); }
+  .modal textarea::placeholder { color: var(--muted); }
+  .modal-actions { display: flex; gap: 8px; }
+  .modal-confirm {
+    flex: 1;
+    padding: 11px;
+    border-radius: var(--radius-sm);
+    border: none;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity .12s;
+  }
+  .modal-confirm:active { opacity: 0.8; }
+  .modal-cancel {
+    padding: 11px 16px;
+    border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    transition: color .12s;
+  }
+  .modal-cancel:hover { color: var(--text); }
+  .log-note {
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 2px;
+  }
+
+  @media (min-width: 480px) {
+    .score-num { font-size: 56px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="app-title">🎮 積分遊戲</span>
+  <button class="settings-btn" onclick="openPanel()">⚙ 設定</button>
+</header>
+
+<div class="tabs-wrap" id="tabs"></div>
+
+<div class="score-card" id="score-card">
+  <div class="score-top">
+    <div>
+      <div class="player-label">目前玩家</div>
+      <div class="player-name-big" id="cur-name">—</div>
+    </div>
+    <div class="score-num" id="cur-score">0</div>
+  </div>
+  <div style="position:relative">
+    <div class="bar-outer">
+      <div class="bar-inner" id="bar"><div class="bar-thumb"></div></div>
+      <div class="bar-mid"></div>
+    </div>
+    <div class="bar-labels"><span>-100</span><span>0</span><span>+100</span></div>
+  </div>
+</div>
+
+<div class="section-wrap">
+  <div class="section-label">加分</div>
+  <div class="btn-grid">
+    <button class="score-btn plus" onclick="change(1)">+1</button>
+    <button class="score-btn plus" onclick="change(5)">+5</button>
+    <button class="score-btn plus" onclick="change(10)">+10</button>
+  </div>
+</div>
+
+<div class="section-wrap">
+  <div class="section-label">扣分</div>
+  <div class="btn-grid">
+    <button class="score-btn minus" onclick="change(-1)">-1</button>
+    <button class="score-btn minus" onclick="change(-5)">-5</button>
+    <button class="score-btn minus" onclick="change(-10)">-10</button>
+  </div>
+</div>
+
+<div class="section-wrap">
+  <div class="section-label">願望清單</div>
+  <div class="wish-list" id="wish-display"></div>
+</div>
+
+<div class="section-wrap">
+  <button class="log-toggle" onclick="toggleLog(this)">▸ 歷史紀錄</button>
+  <div class="log-area" id="log-area"></div>
+</div>
+
+<!-- Settings Panel -->
+<div class="panel-backdrop" id="backdrop" onclick="e=>e.target===this&&closePanel()">
+  <div class="panel" onclick="event.stopPropagation()">
+    <div class="panel-title">⚙ 設定</div>
+
+    <div class="panel-section-label">玩家管理</div>
+    <div class="add-row">
+      <input type="text" id="new-name" placeholder="新增玩家名稱..." maxlength="12">
+      <button class="panel-btn" onclick="addPlayer()">新增</button>
+    </div>
+    <div id="player-list"></div>
+
+    <div class="panel-section-label">願望清單</div>
+    <div id="wish-editor"></div>
+    <button class="add-wish-btn" onclick="addWish()">＋ 新增願望</button>
+
+    <button class="panel-btn close-btn" onclick="closePanel()">完成</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Note modal -->
+<div class="modal-backdrop" id="note-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-delta" id="modal-delta"></div>
+      <div>
+        <div id="modal-player" style="font-size:14px;font-weight:500"></div>
+        <div class="modal-sub">加備註（可留空）</div>
+      </div>
+    </div>
+    <textarea id="note-input" placeholder="例如：幫忙倒垃圾、說謊扣分..." maxlength="80"></textarea>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeNoteModal()">取消</button>
+      <button class="modal-confirm" id="modal-confirm-btn" onclick="confirmChange()">確認</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let players = JSON.parse(localStorage.getItem('pg2_players') || 'null') || [
+  {name:'玩家 A', score:0},
+  {name:'玩家 B', score:0}
+];
+let wishes = JSON.parse(localStorage.getItem('pg2_wishes') || 'null') || [
+  {name:'電影院約會', cost:30, desc:'含爆米花'},
+  {name:'大餐（指定餐廳）', cost:50, desc:'可選星期六晚餐'},
+  {name:'在家被服侍一天', cost:60, desc:'對方做家事+煮飯'},
+  {name:'迪士尼樂園', cost:80, desc:'一日票含餐'},
+];
+let logs = JSON.parse(localStorage.getItem('pg2_logs') || '[]');
+let cur = 0;
+
+function save() {
+  localStorage.setItem('pg2_players', JSON.stringify(players));
+  localStorage.setItem('pg2_wishes', JSON.stringify(wishes));
+  localStorage.setItem('pg2_logs', JSON.stringify(logs));
+}
+
+function scoreColor(s) {
+  if (s >= 50) return '#2dd4a0';
+  if (s >= 0)  return '#60a5fa';
+  if (s >= -50) return '#f5a623';
+  return '#f26b5b';
+}
+function glowColor(s) {
+  if (s >= 50) return 'rgba(45,212,160,0.08)';
+  if (s >= 0)  return 'rgba(96,165,250,0.08)';
+  if (s >= -50) return 'rgba(245,166,35,0.08)';
+  return 'rgba(242,107,91,0.08)';
+}
+
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = players.map((p, i) =>
+    `<button class="tab${i === cur ? ' active' : ''}" onclick="switchPlayer(${i})">${p.name}</button>`
+  ).join('');
+}
+
+function renderScore() {
+  const p = players[cur];
+  const s = p.score;
+  const col = scoreColor(s);
+  document.getElementById('cur-name').textContent = p.name;
+  const el = document.getElementById('cur-score');
+  el.textContent = (s > 0 ? '+' : '') + s;
+  el.style.color = col;
+  document.getElementById('score-card').style.setProperty('--glow-color', glowColor(s));
+  const pct = ((s + 100) / 200) * 100;
+  const bar = document.getElementById('bar');
+  bar.style.width = pct + '%';
+  bar.style.background = col;
+  renderWishes();
+}
+
+function renderWishes() {
+  const s = players[cur] ? players[cur].score : 0;
+  document.getElementById('wish-display').innerHTML = wishes.map(w => {
+    const can = s >= w.cost;
+    const diff = w.cost - s;
+    return `<div class="wish-item${can ? ' unlocked' : ''}">
+      <div>
+        <div class="wish-name">${w.name}</div>
+        <div class="wish-desc">${w.desc}</div>
+      </div>
+      <div>
+        <div class="wish-cost" style="color:${scoreColor(can?100:s)}">${w.cost} 分</div>
+        <div class="wish-tag ${can ? 'tag-ok' : 'tag-no'}">${can ? '✓ 可兌換' : '差 ' + diff + ' 分'}</div>
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:var(--muted);font-size:13px;padding:8px 0">還沒有願望，請在設定裡新增</div>';
+}
+
+function renderPlayerList() {
+  document.getElementById('player-list').innerHTML = players.map((p, i) =>
+    `<div class="player-list-item">
+      <span>${p.name} <span style="color:var(--muted);font-size:12px;font-family:'DM Mono',monospace">${p.score > 0 ? '+' : ''}${p.score}</span></span>
+      ${players.length > 1 ? `<button class="del-btn" onclick="removePlayer(${i})">×</button>` : ''}
+    </div>`
+  ).join('');
+}
+
+function renderWishEditor() {
+  document.getElementById('wish-editor').innerHTML = wishes.map((w, i) =>
+    `<div class="wish-edit-row">
+      <input type="text" value="${w.name}" placeholder="願望名稱" oninput="wishes[${i}].name=this.value;save();renderWishes()">
+      <input type="number" value="${w.cost}" min="0" max="100" oninput="wishes[${i}].cost=+this.value||0;save();renderWishes()">
+      <input type="text" class="desc" value="${w.desc}" placeholder="說明" oninput="wishes[${i}].desc=this.value;save()">
+      <button class="del-btn" onclick="removeWish(${i})">×</button>
+    </div>`
+  ).join('');
+}
+
+function switchPlayer(i) { cur = i; renderTabs(); renderScore(); }
+
+let pendingDelta = 0;
+function change(d) {
+  pendingDelta = d;
+  const p = players[cur];
+  const isPlus = d > 0;
+  document.getElementById('modal-delta').textContent = (d > 0 ? '+' : '') + d;
+  document.getElementById('modal-delta').style.color = isPlus ? 'var(--green)' : 'var(--red)';
+  document.getElementById('modal-player').textContent = p.name;
+  const btn = document.getElementById('modal-confirm-btn');
+  btn.style.background = isPlus ? 'var(--green)' : 'var(--red)';
+  btn.style.color = '#0f0f13';
+  document.getElementById('note-input').value = '';
+  document.getElementById('note-backdrop').classList.add('open');
+  setTimeout(() => document.getElementById('note-input').focus(), 50);
+}
+
+function closeNoteModal() {
+  document.getElementById('note-backdrop').classList.remove('open');
+}
+
+function confirmChange() {
+  const note = document.getElementById('note-input').value.trim();
+  const p = players[cur];
+  p.score = Math.max(-100, Math.min(100, p.score + pendingDelta));
+  const now = new Date();
+  const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  logs.unshift({ name: p.name, delta: pendingDelta, score: p.score, time: t, note });
+  if (logs.length > 100) logs.pop();
+  save();
+  closeNoteModal();
+  renderTabs();
+  renderScore();
+  renderLog();
+  showToast(`${p.name} ${pendingDelta > 0 ? '+' : ''}${pendingDelta} → ${p.score > 0 ? '+' : ''}${p.score}`);
+}
+
+document.getElementById('note-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirmChange(); }
+});
+document.getElementById('note-backdrop').addEventListener('click', function(e) {
+  if (e.target === this) closeNoteModal();
+});
+
+function addPlayer() {
+  const inp = document.getElementById('new-name');
+  const name = inp.value.trim();
+  if (!name) return;
+  players.push({ name, score: 0 });
+  cur = players.length - 1;
+  inp.value = '';
+  save();
+  renderTabs();
+  renderScore();
+  renderPlayerList();
+}
+
+function removePlayer(i) {
+  if (players.length <= 1) return;
+  players.splice(i, 1);
+  if (cur >= players.length) cur = players.length - 1;
+  save();
+  renderTabs();
+  renderScore();
+  renderPlayerList();
+}
+
+function addWish() {
+  wishes.push({ name: '', cost: 0, desc: '' });
+  save();
+  renderWishEditor();
+  renderWishes();
+}
+
+function removeWish(i) {
+  wishes.splice(i, 1);
+  save();
+  renderWishEditor();
+  renderWishes();
+}
+
+function openPanel() {
+  renderPlayerList();
+  renderWishEditor();
+  document.getElementById('backdrop').classList.add('open');
+}
+function closePanel() {
+  document.getElementById('backdrop').classList.remove('open');
+  renderWishes();
+}
+
+document.getElementById('backdrop').addEventListener('click', function(e) {
+  if (e.target === this) closePanel();
+});
+
+function toggleLog(btn) {
+  const area = document.getElementById('log-area');
+  const open = area.style.display === 'block';
+  area.style.display = open ? 'none' : 'block';
+  btn.textContent = (open ? '▸' : '▾') + ' 歷史紀錄';
+  if (!open) renderLog();
+}
+
+function renderLog() {
+  const area = document.getElementById('log-area');
+  if (area.style.display !== 'block') return;
+  area.innerHTML = logs.length
+    ? logs.map(l =>
+        `<div class="log-entry" style="flex-direction:column;gap:2px;align-items:stretch">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="color:var(--muted)">${l.name}</span>
+            <span style="display:flex;gap:10px;align-items:center">
+              <span style="color:${l.delta > 0 ? 'var(--green)' : 'var(--red)'}; font-family:'DM Mono',monospace">${l.delta > 0 ? '+' : ''}${l.delta}</span>
+              <span style="font-family:'DM Mono',monospace">${l.score > 0 ? '+' : ''}${l.score}</span>
+              <span style="color:var(--muted)">${l.time}</span>
+            </span>
+          </div>
+          ${l.note ? `<div class="log-note">📝 ${l.note}</div>` : ''}
+        </div>`
+      ).join('')
+    : '<div style="color:var(--muted);font-size:12px;padding:4px 0">還沒有紀錄</div>';
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+renderTabs();
+renderScore();
+</script>
+</body>
+</html>
