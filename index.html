@@ -779,6 +779,7 @@ onValue(ref(db, 'players'), snap => {
 });
 
 onValue(ref(db, 'wishes'), snap => {
+  if (isPanelOpen) return; // 面板開著時完全不動
   const val = snap.val();
   wishes = val ? Object.values(val) : [
     { name: '電影院約會', cost: 30, desc: '含爆米花' },
@@ -922,8 +923,7 @@ window._removePlayer = function(i) {
 };
 window._updateWish = function(i, field, val) {
   wishes[i][field] = val;
-  set(ref(db, 'wishes'), wishes);
-  renderWishes();
+  renderWishes(); // 只更新主頁顯示，不寫 Firebase
 };
 window._addWish = function() {
   wishes.push({ name: '', cost: 0, desc: '' });
@@ -945,6 +945,7 @@ window._openPanel = function() {
 };
 window._closePanel = function() {
   isPanelOpen = false;
+  set(ref(db, 'wishes'), wishes); // 關閉時才統一存檔
   document.getElementById('backdrop').classList.remove('open');
 };
 document.getElementById('backdrop').addEventListener('click', function(e) {
