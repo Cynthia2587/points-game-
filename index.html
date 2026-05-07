@@ -503,7 +503,7 @@
 
 <header>
   <span class="app-title">🎮 積分遊戲</span>
-  <button class="settings-btn" onclick="openPanel()">⚙ 設定</button>
+  <button class="settings-btn" onclick="window._openPanel()">⚙ 設定</button>
 </header>
 
 <div class="tabs-wrap" id="tabs"></div>
@@ -638,25 +638,28 @@
   </div>
 </div>
 
-<script>
-let players = JSON.parse(localStorage.getItem('pg2_players') || 'null') || [
-  {name:'玩家 A', score:0},
-  {name:'玩家 B', score:0}
-];
-let wishes = JSON.parse(localStorage.getItem('pg2_wishes') || 'null') || [
-  {name:'電影院約會', cost:30, desc:'含爆米花'},
-  {name:'大餐（指定餐廳）', cost:50, desc:'可選星期六晚餐'},
-  {name:'在家被服侍一天', cost:60, desc:'對方做家事+煮飯'},
-  {name:'迪士尼樂園', cost:80, desc:'一日票含餐'},
-];
-let logs = JSON.parse(localStorage.getItem('pg2_logs') || '[]');
-let cur = 0;
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, update, push, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-function save() {
-  localStorage.setItem('pg2_players', JSON.stringify(players));
-  localStorage.setItem('pg2_wishes', JSON.stringify(wishes));
-  localStorage.setItem('pg2_logs', JSON.stringify(logs));
-}
+const firebaseConfig = {
+  apiKey: "AIzaSyAqbWzia7Lrpq4qErPNz0hsqDtMZPTpRIQ",
+  authDomain: "points-game-5f2e1.firebaseapp.com",
+  databaseURL: "https://points-game-5f2e1-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "points-game-5f2e1",
+  storageBucket: "points-game-5f2e1.firebasestorage.app",
+  messagingSenderId: "15010228461",
+  appId: "1:15010228461:web:157a799873af197e9984e4"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let players = [];
+let wishes = [];
+let logs = [];
+let cur = 0;
+let loaded = false;
 
 function scoreColor(s) {
   if (s >= 50) return '#2dd4a0';
@@ -673,11 +676,12 @@ function glowColor(s) {
 
 function renderTabs() {
   document.getElementById('tabs').innerHTML = players.map((p, i) =>
-    `<button class="tab${i === cur ? ' active' : ''}" onclick="switchPlayer(${i})">${p.name}</button>`
+    `<button class="tab${i === cur ? ' active' : ''}" onclick="window._switchPlayer(${i})">${p.name}</button>`
   ).join('');
 }
 
 function renderScore() {
+  if (!players[cur]) return;
   const p = players[cur];
   const s = p.score;
   const col = scoreColor(s);
@@ -698,7 +702,7 @@ function renderWishes() {
   document.getElementById('wish-display').innerHTML = wishes.map((w, i) => {
     const can = s >= w.cost;
     const diff = w.cost - s;
-    return `<div class="wish-item${can ? ' unlocked' : ''}" ${can ? `onclick="openRedeemModal(${i})"` : ''}>
+    return `<div class="wish-item${can ? ' unlocked' : ''}" ${can ? `onclick="window._openRedeemModal(${i})"` : ''}>
       <div>
         <div class="wish-name">${w.name}</div>
         <div class="wish-desc">${w.desc}</div>
@@ -711,81 +715,11 @@ function renderWishes() {
   }).join('') || '<div style="color:var(--muted);font-size:13px;padding:8px 0">還沒有願望，請在設定裡新增</div>';
 }
 
-let pendingRedeemWishIdx = null;
-function openRedeemModal(wishIdx) {
-  const w = wishes[wishIdx];
-  const p = players[cur];
-  pendingRedeemWishIdx = wishIdx;
-  document.getElementById('redeem-player-label').textContent = p.name + ' 目前 ' + (p.score > 0 ? '+' : '') + p.score + ' 分';
-  document.getElementById('redeem-wish-name').textContent = w.name;
-  document.getElementById('redeem-wish-desc').textContent = w.desc;
-  document.getElementById('redeem-wish-cost').textContent = '兌換後扣除 ' + w.cost + ' 分 → ' + (p.score - w.cost);
-  document.getElementById('redeem-backdrop').classList.add('open');
-}
-function closeRedeemModal() {
-  document.getElementById('redeem-backdrop').classList.remove('open');
-  pendingRedeemWishIdx = null;
-}
-function confirmRedeem() {
-  if (pendingRedeemWishIdx === null) return;
-  const w = wishes[pendingRedeemWishIdx];
-  const p = players[cur];
-  p.score = Math.max(-100, Math.min(100, p.score - w.cost));
-  const now = new Date();
-  const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-  const logId = Date.now();
-  logs.unshift({ id: logId, name: p.name, delta: -w.cost, score: p.score, time: t, note: '', redeemed: w.name });
-  if (logs.length > 100) logs.pop();
-  save();
-  closeRedeemModal();
-  renderTabs();
-  renderScore();
-  renderLog();
-  showToast('🎁 已兌換「' + w.name + '」');
-}
-document.getElementById('redeem-backdrop').addEventListener('click', function(e) {
-  if (e.target === this) closeRedeemModal();
-});
-
-let pendingCancelLogId = null;
-function openCancelRedeemModal(logId) {
-  const entry = logs.find(l => l.id === logId);
-  if (!entry) return;
-  pendingCancelLogId = logId;
-  document.getElementById('cancel-wish-name').textContent = '「' + entry.redeemed + '」';
-  document.getElementById('cancel-wish-cost').textContent = '還原 ' + Math.abs(entry.delta) + ' 分給 ' + entry.name;
-  document.getElementById('cancel-redeem-backdrop').classList.add('open');
-}
-function closeCancelRedeemModal() {
-  document.getElementById('cancel-redeem-backdrop').classList.remove('open');
-  pendingCancelLogId = null;
-}
-function confirmCancelRedeem() {
-  if (pendingCancelLogId === null) return;
-  const idx = logs.findIndex(l => l.id === pendingCancelLogId);
-  if (idx === -1) return;
-  const entry = logs[idx];
-  const pIdx = players.findIndex(p => p.name === entry.name);
-  if (pIdx !== -1) {
-    players[pIdx].score = Math.max(-100, Math.min(100, players[pIdx].score + Math.abs(entry.delta)));
-  }
-  logs.splice(idx, 1);
-  save();
-  closeCancelRedeemModal();
-  renderTabs();
-  renderScore();
-  renderLog();
-  showToast('已取消兌換，分數已還原');
-}
-document.getElementById('cancel-redeem-backdrop').addEventListener('click', function(e) {
-  if (e.target === this) closeCancelRedeemModal();
-});
-
 function renderPlayerList() {
   document.getElementById('player-list').innerHTML = players.map((p, i) =>
     `<div class="player-list-item">
       <span>${p.name} <span style="color:var(--muted);font-size:12px;font-family:'DM Mono',monospace">${p.score > 0 ? '+' : ''}${p.score}</span></span>
-      ${players.length > 1 ? `<button class="del-btn" onclick="removePlayer(${i})">×</button>` : ''}
+      ${players.length > 1 ? `<button class="del-btn" onclick="window._removePlayer(${i})">×</button>` : ''}
     </div>`
   ).join('');
 }
@@ -793,116 +727,12 @@ function renderPlayerList() {
 function renderWishEditor() {
   document.getElementById('wish-editor').innerHTML = wishes.map((w, i) =>
     `<div class="wish-edit-row">
-      <input type="text" value="${w.name}" placeholder="願望名稱" oninput="wishes[${i}].name=this.value;save();renderWishes()">
-      <input type="number" value="${w.cost}" min="0" max="100" oninput="wishes[${i}].cost=+this.value||0;save();renderWishes()">
-      <input type="text" class="desc" value="${w.desc}" placeholder="說明" oninput="wishes[${i}].desc=this.value;save()">
-      <button class="del-btn" onclick="removeWish(${i})">×</button>
+      <input type="text" value="${w.name}" placeholder="願望名稱" oninput="window._updateWish(${i},'name',this.value)">
+      <input type="number" value="${w.cost}" min="0" max="100" oninput="window._updateWish(${i},'cost',+this.value||0)">
+      <input type="text" class="desc" value="${w.desc}" placeholder="說明" oninput="window._updateWish(${i},'desc',this.value)">
+      <button class="del-btn" onclick="window._removeWish(${i})">×</button>
     </div>`
   ).join('');
-}
-
-function switchPlayer(i) { cur = i; renderTabs(); renderScore(); }
-
-let pendingDelta = 0;
-function change(d) {
-  pendingDelta = d;
-  const p = players[cur];
-  const isPlus = d > 0;
-  document.getElementById('modal-delta').textContent = (d > 0 ? '+' : '') + d;
-  document.getElementById('modal-delta').style.color = isPlus ? 'var(--green)' : 'var(--red)';
-  document.getElementById('modal-player').textContent = p.name;
-  const btn = document.getElementById('modal-confirm-btn');
-  btn.style.background = isPlus ? 'var(--green)' : 'var(--red)';
-  btn.style.color = '#0f0f13';
-  document.getElementById('note-input').value = '';
-  document.getElementById('note-backdrop').classList.add('open');
-  setTimeout(() => document.getElementById('note-input').focus(), 50);
-}
-
-function closeNoteModal() {
-  document.getElementById('note-backdrop').classList.remove('open');
-}
-
-function confirmChange() {
-  const note = document.getElementById('note-input').value.trim();
-  const p = players[cur];
-  p.score = Math.max(-100, Math.min(100, p.score + pendingDelta));
-  const now = new Date();
-  const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-  logs.unshift({ name: p.name, delta: pendingDelta, score: p.score, time: t, note });
-  if (logs.length > 100) logs.pop();
-  save();
-  closeNoteModal();
-  renderTabs();
-  renderScore();
-  renderLog();
-  showToast(`${p.name} ${pendingDelta > 0 ? '+' : ''}${pendingDelta} → ${p.score > 0 ? '+' : ''}${p.score}`);
-}
-
-document.getElementById('note-input').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirmChange(); }
-});
-document.getElementById('note-backdrop').addEventListener('click', function(e) {
-  if (e.target === this) closeNoteModal();
-});
-
-function addPlayer() {
-  const inp = document.getElementById('new-name');
-  const name = inp.value.trim();
-  if (!name) return;
-  players.push({ name, score: 0 });
-  cur = players.length - 1;
-  inp.value = '';
-  save();
-  renderTabs();
-  renderScore();
-  renderPlayerList();
-}
-
-function removePlayer(i) {
-  if (players.length <= 1) return;
-  players.splice(i, 1);
-  if (cur >= players.length) cur = players.length - 1;
-  save();
-  renderTabs();
-  renderScore();
-  renderPlayerList();
-}
-
-function addWish() {
-  wishes.push({ name: '', cost: 0, desc: '' });
-  save();
-  renderWishEditor();
-  renderWishes();
-}
-
-function removeWish(i) {
-  wishes.splice(i, 1);
-  save();
-  renderWishEditor();
-  renderWishes();
-}
-
-function openPanel() {
-  renderPlayerList();
-  renderWishEditor();
-  document.getElementById('backdrop').classList.add('open');
-}
-function closePanel() {
-  document.getElementById('backdrop').classList.remove('open');
-  renderWishes();
-}
-
-document.getElementById('backdrop').addEventListener('click', function(e) {
-  if (e.target === this) closePanel();
-});
-
-function toggleLog(btn) {
-  const area = document.getElementById('log-area');
-  const open = area.style.display === 'block';
-  area.style.display = open ? 'none' : 'block';
-  btn.textContent = (open ? '▸' : '▾') + ' 歷史紀錄';
-  if (!open) renderLog();
 }
 
 function renderLog() {
@@ -919,26 +749,209 @@ function renderLog() {
               <span style="color:var(--muted)">${l.time}</span>
             </span>
           </div>
-          ${l.redeemed ? `<div style="margin-top:3px"><span class="log-redeemed-tag">🎁 ${l.redeemed}</span><button class="log-cancel-btn" onclick="openCancelRedeemModal(${l.id})">取消兌換</button></div>` : ''}
+          ${l.redeemed ? `<div style="margin-top:3px"><span class="log-redeemed-tag">🎁 ${l.redeemed}</span><button class="log-cancel-btn" onclick="window._openCancelRedeemModal('${l.fbKey}')">取消兌換</button></div>` : ''}
           ${l.note ? `<div class="log-note">📝 ${l.note}</div>` : ''}
         </div>`
       ).join('')
     : '<div style="color:var(--muted);font-size:12px;padding:4px 0">還沒有紀錄</div>';
 }
 
-let toastTimer;
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
 }
 
-renderTabs();
-renderScore();
-logs.forEach((l, i) => { if (!l.id) l.id = Date.now() + i; });
-save();
+onValue(ref(db, 'players'), snap => {
+  const val = snap.val();
+  players = val ? Object.values(val) : [{ name: '玩家 A', score: 0 }, { name: '玩家 B', score: 0 }];
+  if (!val) set(ref(db, 'players'), players);
+  if (cur >= players.length) cur = 0;
+  renderTabs();
+  renderScore();
+  if (document.getElementById('player-list').children.length) renderPlayerList();
+});
+
+onValue(ref(db, 'wishes'), snap => {
+  const val = snap.val();
+  wishes = val ? Object.values(val) : [
+    { name: '電影院約會', cost: 30, desc: '含爆米花' },
+    { name: '大餐（指定餐廳）', cost: 50, desc: '可選星期六晚餐' },
+    { name: '在家被服侍一天', cost: 60, desc: '對方做家事+煮飯' },
+    { name: '迪士尼樂園', cost: 80, desc: '一日票含餐' },
+  ];
+  if (!val) set(ref(db, 'wishes'), wishes);
+  renderWishes();
+  if (document.getElementById('wish-editor').children.length) renderWishEditor();
+});
+
+onValue(ref(db, 'logs'), snap => {
+  const val = snap.val();
+  if (val) {
+    logs = Object.entries(val).map(([k, v]) => ({ ...v, fbKey: k }))
+      .sort((a, b) => b.ts - a.ts).slice(0, 100);
+  } else {
+    logs = [];
+  }
+  renderLog();
+});
+
+window._switchPlayer = function(i) { cur = i; renderTabs(); renderScore(); };
+
+window._change = function(d) {
+  window._pendingDelta = d;
+  const p = players[cur];
+  const isPlus = d > 0;
+  document.getElementById('modal-delta').textContent = (d > 0 ? '+' : '') + d;
+  document.getElementById('modal-delta').style.color = isPlus ? 'var(--green)' : 'var(--red)';
+  document.getElementById('modal-player').textContent = p.name;
+  const btn = document.getElementById('modal-confirm-btn');
+  btn.style.background = isPlus ? 'var(--green)' : 'var(--red)';
+  btn.style.color = '#0f0f13';
+  document.getElementById('note-input').value = '';
+  document.getElementById('note-backdrop').classList.add('open');
+  setTimeout(() => document.getElementById('note-input').focus(), 50);
+};
+
+window._closeNoteModal = function() {
+  document.getElementById('note-backdrop').classList.remove('open');
+};
+
+window._confirmChange = function() {
+  const note = document.getElementById('note-input').value.trim();
+  const p = players[cur];
+  const newScore = Math.max(-100, Math.min(100, p.score + window._pendingDelta));
+  const now = new Date();
+  const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  players[cur].score = newScore;
+  set(ref(db, 'players'), players);
+  push(ref(db, 'logs'), { name: p.name, delta: window._pendingDelta, score: newScore, time: t, note: note || '', ts: Date.now() });
+  window._closeNoteModal();
+  showToast(`${p.name} ${window._pendingDelta > 0 ? '+' : ''}${window._pendingDelta} → ${newScore > 0 ? '+' : ''}${newScore}`);
+};
+
+document.getElementById('note-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window._confirmChange(); }
+});
+document.getElementById('note-backdrop').addEventListener('click', function(e) {
+  if (e.target === this) window._closeNoteModal();
+});
+
+window._pendingRedeemWishIdx = null;
+window._openRedeemModal = function(wishIdx) {
+  const w = wishes[wishIdx];
+  const p = players[cur];
+  window._pendingRedeemWishIdx = wishIdx;
+  document.getElementById('redeem-player-label').textContent = p.name + ' 目前 ' + (p.score > 0 ? '+' : '') + p.score + ' 分';
+  document.getElementById('redeem-wish-name').textContent = w.name;
+  document.getElementById('redeem-wish-desc').textContent = w.desc;
+  document.getElementById('redeem-wish-cost').textContent = '兌換後扣除 ' + w.cost + ' 分 → ' + (p.score - w.cost);
+  document.getElementById('redeem-backdrop').classList.add('open');
+};
+window._closeRedeemModal = function() {
+  document.getElementById('redeem-backdrop').classList.remove('open');
+  window._pendingRedeemWishIdx = null;
+};
+window._confirmRedeem = function() {
+  if (window._pendingRedeemWishIdx === null) return;
+  const w = wishes[window._pendingRedeemWishIdx];
+  const p = players[cur];
+  const newScore = Math.max(-100, Math.min(100, p.score - w.cost));
+  const now = new Date();
+  const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  players[cur].score = newScore;
+  set(ref(db, 'players'), players);
+  push(ref(db, 'logs'), { name: p.name, delta: -w.cost, score: newScore, time: t, note: '', redeemed: w.name, ts: Date.now() });
+  window._closeRedeemModal();
+  showToast('🎁 已兌換「' + w.name + '」');
+};
+document.getElementById('redeem-backdrop').addEventListener('click', function(e) {
+  if (e.target === this) window._closeRedeemModal();
+});
+
+window._pendingCancelFbKey = null;
+window._openCancelRedeemModal = function(fbKey) {
+  const entry = logs.find(l => l.fbKey === fbKey);
+  if (!entry) return;
+  window._pendingCancelFbKey = fbKey;
+  document.getElementById('cancel-wish-name').textContent = '「' + entry.redeemed + '」';
+  document.getElementById('cancel-wish-cost').textContent = '還原 ' + Math.abs(entry.delta) + ' 分給 ' + entry.name;
+  document.getElementById('cancel-redeem-backdrop').classList.add('open');
+};
+window._closeCancelRedeemModal = function() {
+  document.getElementById('cancel-redeem-backdrop').classList.remove('open');
+  window._pendingCancelFbKey = null;
+};
+window._confirmCancelRedeem = function() {
+  if (!window._pendingCancelFbKey) return;
+  const entry = logs.find(l => l.fbKey === window._pendingCancelFbKey);
+  if (!entry) return;
+  const pIdx = players.findIndex(p => p.name === entry.name);
+  if (pIdx !== -1) {
+    players[pIdx].score = Math.max(-100, Math.min(100, players[pIdx].score + Math.abs(entry.delta)));
+    set(ref(db, 'players'), players);
+  }
+  remove(ref(db, 'logs/' + window._pendingCancelFbKey));
+  window._closeCancelRedeemModal();
+  showToast('已取消兌換，分數已還原');
+};
+document.getElementById('cancel-redeem-backdrop').addEventListener('click', function(e) {
+  if (e.target === this) window._closeCancelRedeemModal();
+});
+
+window._addPlayer = function() {
+  const inp = document.getElementById('new-name');
+  const name = inp.value.trim();
+  if (!name) return;
+  players.push({ name, score: 0 });
+  set(ref(db, 'players'), players);
+  cur = players.length - 1;
+  inp.value = '';
+};
+window._removePlayer = function(i) {
+  if (players.length <= 1) return;
+  players.splice(i, 1);
+  if (cur >= players.length) cur = players.length - 1;
+  set(ref(db, 'players'), players);
+};
+window._updateWish = function(i, field, val) {
+  wishes[i][field] = val;
+  set(ref(db, 'wishes'), wishes);
+  renderWishes();
+};
+window._addWish = function() {
+  wishes.push({ name: '', cost: 0, desc: '' });
+  set(ref(db, 'wishes'), wishes);
+  renderWishEditor();
+};
+window._removeWish = function(i) {
+  wishes.splice(i, 1);
+  set(ref(db, 'wishes'), wishes);
+  renderWishEditor();
+  renderWishes();
+};
+
+window._openPanel = function() {
+  renderPlayerList();
+  renderWishEditor();
+  document.getElementById('backdrop').classList.add('open');
+};
+window._closePanel = function() {
+  document.getElementById('backdrop').classList.remove('open');
+};
+document.getElementById('backdrop').addEventListener('click', function(e) {
+  if (e.target === this) window._closePanel();
+});
+
+window._toggleLog = function(btn) {
+  const area = document.getElementById('log-area');
+  const open = area.style.display === 'block';
+  area.style.display = open ? 'none' : 'block';
+  btn.textContent = (open ? '▸' : '▾') + ' 歷史紀錄';
+  if (!open) renderLog();
+};
 </script>
 </body>
 </html>
