@@ -895,10 +895,15 @@ window._confirmCancelRedeem = function() {
   if (!entry) return;
   const pIdx = players.findIndex(p => p.name === entry.name);
   if (pIdx !== -1) {
-    players[pIdx].score = Math.max(-100, Math.min(100, players[pIdx].score + Math.abs(entry.delta)));
-    set(ref(db, 'players'), players);
+     const reversedDelta = -entry.delta;
+
+    players[pIdx].score = Math.max(
+      -100,
+      Math.min(100, players[pIdx].score + reversedDelta)
+   );
+    set(ref(db, R+'players'), players);
   }
-  remove(ref(db, 'logs/' + window._pendingCancelFbKey));
+  remove(ref(db, R+'logs/' + window._pendingCancelFbKey));
   window._closeCancelRedeemModal();
   showToast('已取消兌換，分數已還原');
 };
